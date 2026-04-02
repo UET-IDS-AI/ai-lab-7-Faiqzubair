@@ -95,17 +95,39 @@ def naive_bayes_mle_spam():
 
     test_email = "win cash prize now"
 
-    # TODO: tokenize the texts
+    tokenized = [text.split() for text in texts]
 
-    # TODO: build vocabulary
+    vocabulary = set(word for doc in tokenized for word in doc)
 
-    # TODO: compute class priors
+    classes = np.unique(labels)
+    n_total = len(labels)
+    priors = {c: float(np.sum(labels == c)) / n_total for c in classes}
 
-    # TODO: compute word probabilities using simple MLE (no smoothing)
+    word_probs = {c: {} for c in classes}
+    for c in classes:
+        class_docs = [tokenized[i] for i in range(len(labels)) if labels[i] == c]
+        all_words = [word for doc in class_docs for word in doc]
+        total_words = len(all_words)
+        word_counts = {}
+        for word in all_words:
+            word_counts[word] = word_counts.get(word, 0) + 1
+        for word in vocabulary:
+            word_probs[c][word] = word_counts.get(word, 0) / total_words if total_words > 0 else 0.0
 
-    # TODO: predict the class of test_email
+    test_tokens = test_email.split()
+    log_posteriors = {}
+    for c in classes:
+        log_posterior = np.log(priors[c])
+        for word in test_tokens:
+            if word in word_probs[c] and word_probs[c][word] > 0:
+                log_posterior += np.log(word_probs[c][word])
+            else:
+                log_posterior += float('-inf')
+        log_posteriors[c] = log_posterior
 
-    raise NotImplementedError
+    prediction = int(max(log_posteriors, key=log_posteriors.get))
+
+    return priors, word_probs, prediction
 
 
 # =========================
@@ -129,16 +151,30 @@ def knn_iris(k=3, test_size=0.2, seed=0):
     test_accuracy : float
     predictions : np.ndarray
     """
-    # TODO: load iris dataset
+    iris = load_iris()
+    X, y = iris.data, iris.target
 
-    # TODO: split into train and test
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
 
-    # TODO: implement Euclidean distance
+    def euclidean_distance(a, b):
+        return np.sqrt(np.sum((a - b) ** 2, axis=1))
 
-    # TODO: implement prediction using k nearest neighbors
+    def predict_single(x):
+        distances = euclidean_distance(X_train, x)
+        k_indices = np.argsort(distances)[:k]
+        k_labels = y_train[k_indices]
+        counts = np.bincount(k_labels)
+        return int(np.argmax(counts))
 
-    # TODO: compute train predictions and test predictions
+    def predict_all(X):
+        return np.array([predict_single(x) for x in X])
 
-    # TODO: compute accuracies
+    train_predictions = predict_all(X_train)
+    predictions = predict_all(X_test)
 
-    raise NotImplementedError
+    train_accuracy = accuracy_score(y_train, train_predictions)
+    test_accuracy = accuracy_score(y_test, predictions)
+
+    return train_accuracy, test_accuracy, predictions
